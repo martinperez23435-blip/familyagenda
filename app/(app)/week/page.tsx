@@ -9,7 +9,7 @@ import { Minor } from '@/lib/types/minor.types';
 import { User } from '@/lib/types/user.types';
 import { useAuthStore } from '@/store/authStore';
 import EventDetailSheet from '@/components/events/EventDetailSheet';
-import { format, startOfWeek, addDays } from 'date-fns';
+import { format, startOfWeek, addDays, addWeeks, subWeeks } from 'date-fns';
 import { es } from 'date-fns/locale';
 
 function getPickupStatus(event: CalendarEvent): { status: string; assignedTo: string | null } {
@@ -31,26 +31,26 @@ const CARD_COLORS = [
 
 export default function WeekPage() {
   const { user: currentUser } = useAuthStore();
+  const [weekOffset, setWeekOffset] = useState(0);
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [minors, setMinors] = useState<Minor[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
 
-  const weekStart = startOfWeek(new Date(), { weekStartsOn: 1 });
+  const baseWeekStart = startOfWeek(new Date(), { weekStartsOn: 1 });
+  const weekStart = addWeeks(baseWeekStart, weekOffset);
   const today = format(new Date(), 'yyyy-MM-dd');
-
-  // All 7 days of the week
   const allDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
-  
-  // Future/today days first, past days at the end
-  const futureDays = allDays.filter((d) => format(d, 'yyyy-MM-dd') >= today);
-  const pastDays = allDays.filter((d) => format(d, 'yyyy-MM-dd') < today);
+
+  const isCurrentWeek = weekOffset === 0;
+  const futureDays = isCurrentWeek ? allDays.filter((d) => format(d, 'yyyy-MM-dd') >= today) : allDays;
+  const pastDays = isCurrentWeek ? allDays.filter((d) => format(d, 'yyyy-MM-dd') < today) : [];
   const orderedDays = [...futureDays, ...pastDays];
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [weekOffset]);
 
   async function loadData() {
     setLoading(true);
@@ -96,9 +96,37 @@ export default function WeekPage() {
     return { label: type === 'dropoff' ? '🚗' : '🏠', bg: 'rgba(0,0,0,0.08)', color: '#333' };
   }
 
+  const weekLabel = weekOffset === 0
+    ? 'Esta semana'
+    : weekOffset === 1
+    ? 'Próxima semana'
+    : weekOffset === -1
+    ? 'Semana pasada'
+    : `Semana del ${format(weekStart, "d 'de' MMM", { locale: es })}`;
+
   return (
     <div className="p-4">
-      <h1 style={{ fontSize: '20px', fontWeight: 500, color: '#1b4332', marginBottom: '16px' }}>Semana</h1>
+      {/* Navegación de semana */}
+      <div className="flex items-center justify-between mb-4">
+        <button
+          onClick={() => setWeekOffset((o) => o - 1)}
+          style={{ background: 'rgba(45,106,79,0.15)', border: 'none', borderRadius: '8px', padding: '6px 12px', color: '#1b4332', fontWeight: 500, cursor: 'pointer', fontSize: '16px' }}
+        >
+          ‹
+        </button>
+        <div className="text-center">
+          <p style={{ fontSize: '15px', fontWeight: 500, color: '#1b4332' }}>{weekLabel}</p>
+          <p style={{ fontSize: '11px', color: '#52796f' }}>
+            {format(weekStart, "d MMM", { locale: es })} — {format(addDays(weekStart, 6), "d MMM", { locale: es })}
+          </p>
+        </div>
+        <button
+          onClick={() => setWeekOffset((o) => o + 1)}
+          style={{ background: 'rgba(45,106,79,0.15)', border: 'none', borderRadius: '8px', padding: '6px 12px', color: '#1b4332', fontWeight: 500, cursor: 'pointer', fontSize: '16px' }}
+        >
+          ›
+        </button>
+      </div>
 
       {loading ? (
         <p style={{ color: '#2d5a3d' }}>Cargando...</p>
@@ -106,7 +134,7 @@ export default function WeekPage() {
         <div className="flex flex-col gap-6">
           {orderedDays.map((day, dayIndex) => {
             const dateStr = format(day, 'yyyy-MM-dd');
-            const isPast = dateStr < today;
+            const isPast = isCurrentWeek && dateStr < today;
             const isToday = dateStr === today;
             const dayEvents = events
               .filter((e) => e.date === dateStr)
@@ -114,7 +142,6 @@ export default function WeekPage() {
 
             return (
               <div key={dateStr}>
-                {/* Separador visual entre presente y pasado */}
                 {dayIndex === futureDays.length && pastDays.length > 0 && (
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px', opacity: 0.6 }}>
                     <div style={{ flex: 1, height: '1px', background: '#2d6a4f' }} />
