@@ -4,8 +4,8 @@ import NotificationBell from '@/components/notifications/NotificationBell';
 
 export default function Header() {
   return (
-    <header className="bg-white border-b border-gray-100 px-4 py-3 flex items-center justify-between sticky top-0 z-40">
-      <span className="font-bold text-gray-900">Actividades</span>
+    <header style={{ background: '#2d6a4f', padding: '22px 16px 18px' }} className="flex items-center justify-between sticky top-0 z-40">
+      <span style={{ color: '#fff', fontSize: '17px', fontWeight: 500 }}>Actividades</span>
       <NotificationBell />
     </header>
   );

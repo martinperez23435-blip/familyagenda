@@ -30,6 +30,14 @@ function getPickupStatus(event: CalendarEvent): { status: string; assignedTo: st
   return { status: first.status, assignedTo: first.assignedTo };
 }
 
+const CARD_COLORS = [
+  { bg: '#d4e9d4', border: '#1b4332', title: '#1b4332' },
+  { bg: '#d6e4f0', border: '#1a4971', title: '#1a4971' },
+  { bg: '#f0e6d4', border: '#7a4a1a', title: '#7a4a1a' },
+  { bg: '#e9d4e9', border: '#4a1a7a', title: '#4a1a7a' },
+  { bg: '#f0d4d4', border: '#7a1a1a', title: '#7a1a1a' },
+];
+
 export default function TodayPage() {
   const { user: currentUser } = useAuthStore();
   const [events, setEvents] = useState<CalendarEvent[]>([]);
@@ -43,13 +51,11 @@ export default function TodayPage() {
   const todayLabel = format(new Date(), "EEEE d 'de' MMMM", { locale: es });
 
   useEffect(() => {
-    // Load minors and users once
     Promise.all([getMinors(), getUsers()]).then(([minorsData, usersData]) => {
       setMinors(minorsData);
       setUsers(usersData);
     });
 
-    // Real-time listener for today's events
     const q = query(
       collection(db, 'calendar_events'),
       where('date', '==', today),
@@ -61,8 +67,6 @@ export default function TodayPage() {
       const eventsData = snap.docs.map((d) => ({ id: d.id, ...d.data() } as CalendarEvent));
       setEvents(eventsData.sort((a, b) => a.startTime.localeCompare(b.startTime)));
       setLoading(false);
-
-      // Update selectedEvent if open
       setSelectedEvent((prev) => {
         if (!prev) return null;
         const updated = eventsData.find((e) => e.id === prev.id);
@@ -70,13 +74,8 @@ export default function TodayPage() {
       });
     });
 
-    // Recalculate every minute to hide finished events
     const interval = setInterval(() => setNow(new Date()), 60000);
-
-    return () => {
-      unsub();
-      clearInterval(interval);
-    };
+    return () => { unsub(); clearInterval(interval); };
   }, [today]);
 
   function getMinorColor(id: string) {
@@ -92,75 +91,71 @@ export default function TodayPage() {
   }
 
   function getStatusChip(status: string, type: 'dropoff' | 'pickup', assignedTo: string | null) {
-    if (status === 'done') return { label: `✓ ${type === 'dropoff' ? 'Llevó' : 'Retiró'}: ${getUserName(assignedTo!)}`, color: 'text-green-600 bg-green-50' };
-    if (status === 'assigned') return { label: `👤 ${type === 'dropoff' ? 'Lleva' : 'Retira'}: ${getUserName(assignedTo!)}`, color: 'text-blue-600 bg-blue-50' };
-    return { label: type === 'dropoff' ? '🚗 Sin llevar' : '🏠 Sin retirar', color: 'text-orange-500 bg-orange-50' };
+    if (status === 'done') return { label: `✓ ${type === 'dropoff' ? 'Llevó' : 'Retiró'}: ${getUserName(assignedTo!)}`, bg: '#1b4332', color: '#b7e4c7' };
+    if (status === 'assigned') return { label: `👤 ${type === 'dropoff' ? 'Lleva' : 'Retira'}: ${getUserName(assignedTo!)}`, bg: '#2d6a4f', color: '#fff' };
+    return { label: type === 'dropoff' ? '🚗 Sin llevar' : '🏠 Sin retirar', bg: 'rgba(0,0,0,0.08)', color: '#333' };
   }
 
   const visibleEvents = events.filter((e) => !isEventOver(e));
 
   return (
     <div className="p-4">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold capitalize">{todayLabel}</h1>
-        <p className="text-gray-400 text-sm mt-1">
+      <div className="mb-5">
+        <h1 style={{ fontSize: '20px', fontWeight: 500, color: '#1b4332', textTransform: 'capitalize' }}>{todayLabel}</h1>
+        <p style={{ fontSize: '13px', color: '#2d5a3d', marginTop: '2px' }}>
           {visibleEvents.length === 0 ? 'Sin actividades pendientes' : `${visibleEvents.length} actividad${visibleEvents.length > 1 ? 'es' : ''}`}
         </p>
       </div>
 
       {loading ? (
-        <p className="text-gray-500">Cargando...</p>
+        <p style={{ color: '#2d5a3d' }}>Cargando...</p>
       ) : visibleEvents.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20">
-          <span className="text-6xl mb-4">🎉</span>
-          <p className="text-lg font-medium text-gray-400">¡Todo listo por hoy!</p>
-          <p className="text-sm text-gray-300">No hay actividades pendientes</p>
+          <span style={{ fontSize: '60px' }}>🎉</span>
+          <p style={{ fontSize: '18px', fontWeight: 500, color: '#2d5a3d', marginTop: '16px' }}>¡Todo listo por hoy!</p>
+          <p style={{ fontSize: '13px', color: '#52796f', marginTop: '4px' }}>No hay actividades pendientes</p>
         </div>
       ) : (
         <div className="flex flex-col gap-3">
-          {visibleEvents.map((event) => {
+          {visibleEvents.map((event, index) => {
+            const colors = CARD_COLORS[index % CARD_COLORS.length];
             const dropoff = getStatusChip(event.dropoff.status, 'dropoff', event.dropoff.assignedTo);
             const pickupInfo = getPickupStatus(event);
             const pickup = getStatusChip(pickupInfo.status, 'pickup', pickupInfo.assignedTo);
             return (
               <div
                 key={event.id}
-                className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 cursor-pointer"
                 onClick={() => setSelectedEvent(event)}
+                style={{ background: colors.bg, borderRadius: '16px', padding: '14px', borderLeft: `4px solid ${colors.border}`, cursor: 'pointer' }}
               >
                 <div className="flex items-start justify-between mb-3">
                   <div>
-                    <h3 className="font-semibold text-gray-900">{event.title}</h3>
-                    <p className="text-sm text-gray-500 mt-0.5">
+                    <h3 style={{ fontSize: '15px', fontWeight: 500, color: colors.title }}>{event.title}</h3>
+                    <p style={{ fontSize: '12px', color: '#555', marginTop: '2px' }}>
                       {event.startTime} - {event.endTime}
                       {event.location ? ` · ${event.location}` : ''}
                     </p>
                   </div>
-                  <div className="flex gap-3">
+                  <div className="flex gap-2">
                     {event.minorIds.map((id) => (
-                      <div key={id} className="flex flex-col items-center gap-0.5">
-                        <div
-                          className="w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-bold"
-                          style={{ backgroundColor: getMinorColor(id) }}
-                        >
+                      <div key={id} className="flex flex-col items-center gap-1">
+                        <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: getMinorColor(id), display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '18px', fontWeight: 500 }}>
                           {getMinorName(id)[0]}
                         </div>
-                        <span className="text-xs text-gray-500">{getMinorName(id)}</span>
+                        <span style={{ fontSize: '10px', color: '#444', fontWeight: 500 }}>{getMinorName(id)}</span>
                       </div>
                     ))}
                   </div>
                 </div>
                 <div className="flex gap-2 flex-wrap">
-                  <span className={`text-xs px-2 py-1 rounded-full font-medium ${dropoff.color}`}>
+                  <span style={{ fontSize: '11px', padding: '4px 10px', borderRadius: '20px', fontWeight: 500, background: dropoff.bg, color: dropoff.color }}>
                     {dropoff.label}
                   </span>
-                  <span className={`text-xs px-2 py-1 rounded-full font-medium ${pickup.color}`}>
+                  <span style={{ fontSize: '11px', padding: '4px 10px', borderRadius: '20px', fontWeight: 500, background: pickup.bg, color: pickup.color }}>
                     {pickup.label}
                   </span>
                 </div>
-                {event.notes && (
-                  <p className="text-xs text-gray-400 mt-2">{event.notes}</p>
-                )}
+                {event.notes && <p style={{ fontSize: '12px', color: '#666', marginTop: '8px' }}>{event.notes}</p>}
               </div>
             );
           })}

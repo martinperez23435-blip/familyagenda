@@ -8,7 +8,7 @@ import { useGenerateEvents } from '@/lib/hooks/useGenerateEvents';
 function AppContent({ children }: { children: React.ReactNode }) {
   useGenerateEvents();
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
+    <div style={{ minHeight: '100vh', background: 'linear-gradient(180deg, #a8c8a8 0%, #b8d4b8 40%, #d4e8d4 100%)' }} className="flex flex-col">
       <Header />
       <main className="flex-1 pb-20">
         {children}
