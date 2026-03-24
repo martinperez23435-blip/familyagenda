@@ -11,9 +11,10 @@ interface Props {
   currentUserName: string;
   getUserName: (id: string) => string;
   onUpdate: () => void;
+  isReadOnly?: boolean;
 }
 
-export default function AssignmentSection({ event, type, currentUserId, currentUserName, getUserName, onUpdate }: Props) {
+export default function AssignmentSection({ event, type, currentUserId, currentUserName, getUserName, onUpdate, isReadOnly = false }: Props) {
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState('');
 
@@ -66,45 +67,63 @@ export default function AssignmentSection({ event, type, currentUserId, currentU
         {emoji} {label}
       </p>
 
-      {assignment.status === 'pending' && (
-        <button
-          onClick={handleTake}
-          disabled={loading}
-          className="bg-blue-600 text-white rounded-xl py-2.5 text-sm font-medium disabled:opacity-50"
-        >
-          {loading ? 'Procesando...' : `Yo lo ${type === 'dropoff' ? 'llevo' : 'retiro'}`}
-        </button>
-      )}
-
-      {assignment.status === 'assigned' && isMe && (
-        <div className="flex gap-2">
-          <button
-            onClick={handleRelease}
-            disabled={loading}
-            className="flex-1 border border-red-300 text-red-500 rounded-xl py-2.5 text-sm font-medium disabled:opacity-50"
-          >
-            No podré
-          </button>
-          <button
-            onClick={handleDone}
-            disabled={loading}
-            className="flex-1 bg-green-600 text-white rounded-xl py-2.5 text-sm font-medium disabled:opacity-50"
-          >
-            Ya lo hice ✓
-          </button>
+      {/* Vista solo lectura para menores */}
+      {isReadOnly && (
+        <div className={`rounded-xl py-2.5 px-3 text-sm font-medium ${
+          assignment.status === 'done' ? 'bg-green-50 text-green-700' :
+          assignment.status === 'assigned' ? 'bg-blue-50 text-blue-700' :
+          'bg-gray-50 text-gray-400'
+        }`}>
+          {assignment.status === 'done' && `✓ ${getUserName(assignment.assignedTo!)}`}
+          {assignment.status === 'assigned' && `👤 ${getUserName(assignment.assignedTo!)}`}
+          {assignment.status === 'pending' && 'Sin asignar'}
         </div>
       )}
 
-      {assignment.status === 'assigned' && !isMe && (
-        <div className="bg-blue-50 rounded-xl py-2.5 px-3 text-sm text-blue-700 font-medium">
-          👤 {getUserName(assignment.assignedTo!)}
-        </div>
-      )}
+      {/* Vista interactiva para adultos */}
+      {!isReadOnly && (
+        <>
+          {assignment.status === 'pending' && (
+            <button
+              onClick={handleTake}
+              disabled={loading}
+              className="bg-blue-600 text-white rounded-xl py-2.5 text-sm font-medium disabled:opacity-50"
+            >
+              {loading ? 'Procesando...' : `Yo lo ${type === 'dropoff' ? 'llevo' : 'retiro'}`}
+            </button>
+          )}
 
-      {assignment.status === 'done' && (
-        <div className="bg-green-50 rounded-xl py-2.5 px-3 text-sm text-green-700 font-medium">
-          ✓ {getUserName(assignment.assignedTo!)}
-        </div>
+          {assignment.status === 'assigned' && isMe && (
+            <div className="flex gap-2">
+              <button
+                onClick={handleRelease}
+                disabled={loading}
+                className="flex-1 border border-red-300 text-red-500 rounded-xl py-2.5 text-sm font-medium disabled:opacity-50"
+              >
+                No podré
+              </button>
+              <button
+                onClick={handleDone}
+                disabled={loading}
+                className="flex-1 bg-green-600 text-white rounded-xl py-2.5 text-sm font-medium disabled:opacity-50"
+              >
+                Ya lo hice ✓
+              </button>
+            </div>
+          )}
+
+          {assignment.status === 'assigned' && !isMe && (
+            <div className="bg-blue-50 rounded-xl py-2.5 px-3 text-sm text-blue-700 font-medium">
+              👤 {getUserName(assignment.assignedTo!)}
+            </div>
+          )}
+
+          {assignment.status === 'done' && (
+            <div className="bg-green-50 rounded-xl py-2.5 px-3 text-sm text-green-700 font-medium">
+              ✓ {getUserName(assignment.assignedTo!)}
+            </div>
+          )}
+        </>
       )}
 
       {toast && (

@@ -15,6 +15,8 @@ interface Props {
 }
 
 export default function EventDetailSheet({ event, minors, users, currentUser, onClose, onUpdate }: Props) {
+  const isReadOnly = currentUser.role === 'minor';
+
   function getMinorName(id: string) {
     return minors.find((m) => m.id === id)?.name ?? id;
   }
@@ -41,7 +43,7 @@ export default function EventDetailSheet({ event, minors, users, currentUser, on
             <p className="text-gray-500 text-sm mt-1">{event.startTime} - {event.endTime}</p>
             {event.location && <p className="text-gray-400 text-sm">📍 {event.location}</p>}
           </div>
-          <div className="flex gap-1">
+          <div className="flex gap-2">
             {event.minorIds.map((id) => (
               <div key={id} className="flex flex-col items-center gap-0.5">
                 <div
@@ -72,6 +74,7 @@ export default function EventDetailSheet({ event, minors, users, currentUser, on
             currentUserName={currentUser.displayName}
             getUserName={getUserName}
             onUpdate={onUpdate}
+            isReadOnly={isReadOnly}
           />
           <AssignmentSection
             event={event}
@@ -80,6 +83,7 @@ export default function EventDetailSheet({ event, minors, users, currentUser, on
             currentUserName={currentUser.displayName}
             getUserName={getUserName}
             onUpdate={onUpdate}
+            isReadOnly={isReadOnly}
           />
         </div>
 
