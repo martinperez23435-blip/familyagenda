@@ -11,6 +11,8 @@ import { User } from '@/lib/types/user.types';
 import { useAuthStore } from '@/store/authStore';
 import EventDetailSheet from '@/components/events/EventDetailSheet';
 import { format } from 'date-fns';
+import { getFeriados, getMensajeComico } from '@/lib/data/feriados2026';
+import { initFeriados } from '@/lib/services/feriadoService';
 import { es } from 'date-fns/locale';
 
 function isEventOver(event: CalendarEvent): boolean {
@@ -46,11 +48,14 @@ export default function TodayPage() {
   const [loading, setLoading] = useState(true);
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
   const [, setNow] = useState(new Date());
+  const [feriados, setFeriados] = useState<any[]>([]);
+  const [mensajeComico] = useState(getMensajeComico());
 
   const today = format(new Date(), 'yyyy-MM-dd');
   const todayLabel = format(new Date(), "EEEE d 'de' MMMM", { locale: es });
 
   useEffect(() => {
+    initFeriados().then(() => getFeriados()).then(setFeriados);
     Promise.all([getMinors(), getUsers()]).then(([minorsData, usersData]) => {
       setMinors(minorsData);
       setUsers(usersData);
@@ -97,9 +102,16 @@ export default function TodayPage() {
   }
 
   const visibleEvents = events.filter((e) => !isEventOver(e));
+  const feriadoHoy = feriados.find((f) => f.date === today);
 
   return (
     <div className="p-4">
+      {feriadoHoy && (
+        <div style={{ background: '#f0e6d4', borderRadius: '16px', padding: '14px', borderLeft: '4px solid #7a4a1a', marginBottom: '16px' }}>
+          <p style={{ fontWeight: 500, color: '#7a4a1a', fontSize: '14px' }}>🗓️ {feriadoHoy.nombre}</p>
+          <p style={{ fontSize: '13px', color: '#a0522d', marginTop: '4px' }}>{mensajeComico}</p>
+        </div>
+      )}
       <div className="mb-5">
         <h1 style={{ fontSize: '20px', fontWeight: 500, color: '#1b4332', textTransform: 'capitalize' }}>{todayLabel}</h1>
         <p style={{ fontSize: '13px', color: '#2d5a3d', marginTop: '2px' }}>
