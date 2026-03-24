@@ -20,6 +20,16 @@ function isEventOver(event: CalendarEvent): boolean {
   return now > endDate;
 }
 
+function getPickupStatus(event: CalendarEvent): { status: string; assignedTo: string | null } {
+  const pickup = event.pickup as any;
+  const keys = event.minorIds;
+  if (!keys.length) return { status: 'pending', assignedTo: null };
+  // Use first minor's pickup as representative
+  const first = pickup[keys[0]];
+  if (!first) return { status: 'pending', assignedTo: null };
+  return { status: first.status, assignedTo: first.assignedTo };
+}
+
 export default function TodayPage() {
   const { user: currentUser } = useAuthStore();
   const [events, setEvents] = useState<CalendarEvent[]>([]);
@@ -27,14 +37,13 @@ export default function TodayPage() {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
-  const [now, setNow] = useState(new Date());
+  const [, setNow] = useState(new Date());
 
   const today = format(new Date(), 'yyyy-MM-dd');
   const todayLabel = format(new Date(), "EEEE d 'de' MMMM", { locale: es });
 
   useEffect(() => {
     loadData();
-    // Recalculate every minute to hide finished events
     const interval = setInterval(() => setNow(new Date()), 60000);
     return () => clearInterval(interval);
   }, []);
@@ -103,7 +112,8 @@ export default function TodayPage() {
         <div className="flex flex-col gap-3">
           {visibleEvents.map((event) => {
             const dropoff = getStatusChip(event.dropoff.status, 'dropoff', event.dropoff.assignedTo);
-            const pickup = getStatusChip(event.pickup.status, 'pickup', event.pickup.assignedTo);
+            const pickupInfo = getPickupStatus(event);
+            const pickup = getStatusChip(pickupInfo.status, 'pickup', pickupInfo.assignedTo);
             return (
               <div
                 key={event.id}

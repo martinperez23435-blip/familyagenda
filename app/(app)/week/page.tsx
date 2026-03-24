@@ -12,6 +12,15 @@ import EventDetailSheet from '@/components/events/EventDetailSheet';
 import { format, startOfWeek, addDays } from 'date-fns';
 import { es } from 'date-fns/locale';
 
+function getPickupStatus(event: CalendarEvent): { status: string; assignedTo: string | null } {
+  const pickup = event.pickup as any;
+  const keys = event.minorIds;
+  if (!keys.length) return { status: 'pending', assignedTo: null };
+  const first = pickup[keys[0]];
+  if (!first) return { status: 'pending', assignedTo: null };
+  return { status: first.status, assignedTo: first.assignedTo };
+}
+
 export default function WeekPage() {
   const { user: currentUser } = useAuthStore();
   const [events, setEvents] = useState<CalendarEvent[]>([]);
@@ -24,9 +33,7 @@ export default function WeekPage() {
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
   const today = format(new Date(), 'yyyy-MM-dd');
 
-  useEffect(() => {
-    loadData();
-  }, []);
+  useEffect(() => { loadData(); }, []);
 
   async function loadData() {
     setLoading(true);
@@ -90,9 +97,7 @@ export default function WeekPage() {
             return (
               <div key={dateStr}>
                 <div className="flex items-center gap-2 mb-2">
-                  <div className={`w-7 h-7 rounded-full flex items-center justify-center text-sm font-bold ${
-                    isToday ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600'
-                  }`}>
+                  <div className={`w-7 h-7 rounded-full flex items-center justify-center text-sm font-bold ${isToday ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600'}`}>
                     {format(day, 'd')}
                   </div>
                   <p className={`text-sm font-semibold capitalize ${isToday ? 'text-blue-600' : 'text-gray-500'}`}>
@@ -106,7 +111,8 @@ export default function WeekPage() {
                   <div className="flex flex-col gap-2 ml-9">
                     {dayEvents.map((event) => {
                       const dropoff = getStatusChip(event.dropoff.status, 'dropoff', event.dropoff.assignedTo);
-                      const pickup = getStatusChip(event.pickup.status, 'pickup', event.pickup.assignedTo);
+                      const pickupInfo = getPickupStatus(event);
+                      const pickup = getStatusChip(pickupInfo.status, 'pickup', pickupInfo.assignedTo);
                       return (
                         <div
                           key={event.id}
