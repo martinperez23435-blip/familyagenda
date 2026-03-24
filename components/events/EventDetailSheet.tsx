@@ -38,37 +38,22 @@ export default function EventDetailSheet({ event, minors, users, currentUser, on
         <div className="flex items-start justify-between mb-4">
           <div>
             <h2 className="text-xl font-bold text-gray-900">{event.title}</h2>
-            <p className="text-gray-500 text-sm mt-1">
-              {event.startTime} - {event.endTime}
-            </p>
-            {event.location && (
-              <p className="text-gray-400 text-sm">📍 {event.location}</p>
-            )}
+            <p className="text-gray-500 text-sm mt-1">{event.startTime} - {event.endTime}</p>
+            {event.location && <p className="text-gray-400 text-sm">📍 {event.location}</p>}
           </div>
           <div className="flex gap-1">
             {event.minorIds.map((id) => (
-              <div
-                key={id}
-                className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold"
-                style={{ backgroundColor: getMinorColor(id) }}
-                title={getMinorName(id)}
-              >
-                {getMinorName(id)[0]}
+              <div key={id} className="flex flex-col items-center gap-0.5">
+                <div
+                  className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold"
+                  style={{ backgroundColor: getMinorColor(id) }}
+                >
+                  {getMinorName(id)[0]}
+                </div>
+                <span className="text-xs text-gray-500">{getMinorName(id)}</span>
               </div>
             ))}
           </div>
-        </div>
-
-        <div className="flex gap-2 mb-5">
-          {event.minorIds.map((id) => (
-            <span
-              key={id}
-              className="text-xs text-white px-3 py-1 rounded-full font-medium"
-              style={{ backgroundColor: getMinorColor(id) }}
-            >
-              {getMinorName(id)}
-            </span>
-          ))}
         </div>
 
         {event.notes && (
@@ -84,6 +69,7 @@ export default function EventDetailSheet({ event, minors, users, currentUser, on
             event={event}
             type="dropoff"
             currentUserId={currentUser.id}
+            currentUserName={currentUser.displayName}
             getUserName={getUserName}
             onUpdate={onUpdate}
           />
@@ -91,6 +77,7 @@ export default function EventDetailSheet({ event, minors, users, currentUser, on
             event={event}
             type="pickup"
             currentUserId={currentUser.id}
+            currentUserName={currentUser.displayName}
             getUserName={getUserName}
             onUpdate={onUpdate}
           />

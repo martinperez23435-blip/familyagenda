@@ -8,11 +8,12 @@ interface Props {
   event: CalendarEvent;
   type: 'dropoff' | 'pickup';
   currentUserId: string;
+  currentUserName: string;
   getUserName: (id: string) => string;
   onUpdate: () => void;
 }
 
-export default function AssignmentSection({ event, type, currentUserId, getUserName, onUpdate }: Props) {
+export default function AssignmentSection({ event, type, currentUserId, currentUserName, getUserName, onUpdate }: Props) {
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState('');
 
@@ -28,7 +29,7 @@ export default function AssignmentSection({ event, type, currentUserId, getUserN
 
   async function handleTake() {
     setLoading(true);
-    const result = await takeAssignment(event.id, type, currentUserId);
+    const result = await takeAssignment(event.id, event.title, event.date, type, currentUserId, currentUserName);
     if (result.success) {
       onUpdate();
     } else {
@@ -39,7 +40,7 @@ export default function AssignmentSection({ event, type, currentUserId, getUserN
 
   async function handleRelease() {
     setLoading(true);
-    const result = await releaseAssignment(event.id, type, currentUserId);
+    const result = await releaseAssignment(event.id, event.title, event.date, type, currentUserId, currentUserName);
     if (result.success) {
       onUpdate();
     } else {
@@ -50,7 +51,7 @@ export default function AssignmentSection({ event, type, currentUserId, getUserN
 
   async function handleDone() {
     setLoading(true);
-    const result = await markDone(event.id, type, currentUserId);
+    const result = await markDone(event.id, event.title, event.date, type, currentUserId, currentUserName);
     if (result.success) {
       onUpdate();
     } else {
@@ -69,7 +70,7 @@ export default function AssignmentSection({ event, type, currentUserId, getUserN
         <button
           onClick={handleTake}
           disabled={loading}
-          className="bg-blue-600 text-white rounded-xl py-2.5 text-sm font-medium disabled:opacity-50 active:scale-95 transition-transform"
+          className="bg-blue-600 text-white rounded-xl py-2.5 text-sm font-medium disabled:opacity-50"
         >
           {loading ? 'Procesando...' : `Yo lo ${type === 'dropoff' ? 'llevo' : 'retiro'}`}
         </button>

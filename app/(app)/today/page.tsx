@@ -12,6 +12,14 @@ import EventDetailSheet from '@/components/events/EventDetailSheet';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 
+function isEventOver(event: CalendarEvent): boolean {
+  const now = new Date();
+  const [hours, minutes] = event.endTime.split(':').map(Number);
+  const endDate = new Date();
+  endDate.setHours(hours, minutes, 0, 0);
+  return now > endDate;
+}
+
 export default function TodayPage() {
   const { user: currentUser } = useAuthStore();
   const [events, setEvents] = useState<CalendarEvent[]>([]);
@@ -19,12 +27,16 @@ export default function TodayPage() {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
+  const [now, setNow] = useState(new Date());
 
   const today = format(new Date(), 'yyyy-MM-dd');
   const todayLabel = format(new Date(), "EEEE d 'de' MMMM", { locale: es });
 
   useEffect(() => {
     loadData();
+    // Recalculate every minute to hide finished events
+    const interval = setInterval(() => setNow(new Date()), 60000);
+    return () => clearInterval(interval);
   }, []);
 
   async function loadData() {
@@ -68,26 +80,28 @@ export default function TodayPage() {
     return { label: type === 'dropoff' ? '🚗 Sin llevar' : '🏠 Sin retirar', color: 'text-orange-500 bg-orange-50' };
   }
 
+  const visibleEvents = events.filter((e) => !isEventOver(e));
+
   return (
     <div className="p-4">
       <div className="mb-6">
         <h1 className="text-2xl font-bold capitalize">{todayLabel}</h1>
         <p className="text-gray-400 text-sm mt-1">
-          {events.length === 0 ? 'Sin actividades hoy' : `${events.length} actividad${events.length > 1 ? 'es' : ''}`}
+          {visibleEvents.length === 0 ? 'Sin actividades pendientes' : `${visibleEvents.length} actividad${visibleEvents.length > 1 ? 'es' : ''}`}
         </p>
       </div>
 
       {loading ? (
         <p className="text-gray-500">Cargando...</p>
-      ) : events.length === 0 ? (
+      ) : visibleEvents.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20">
           <span className="text-6xl mb-4">🎉</span>
-          <p className="text-lg font-medium text-gray-400">¡Día libre!</p>
-          <p className="text-sm text-gray-300">No hay actividades para hoy</p>
+          <p className="text-lg font-medium text-gray-400">¡Todo listo por hoy!</p>
+          <p className="text-sm text-gray-300">No hay actividades pendientes</p>
         </div>
       ) : (
         <div className="flex flex-col gap-3">
-          {events.map((event) => {
+          {visibleEvents.map((event) => {
             const dropoff = getStatusChip(event.dropoff.status, 'dropoff', event.dropoff.assignedTo);
             const pickup = getStatusChip(event.pickup.status, 'pickup', event.pickup.assignedTo);
             return (
