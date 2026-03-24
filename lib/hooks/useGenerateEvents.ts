@@ -1,9 +1,7 @@
 import { useEffect } from 'react';
-import { getTemplates } from '@/lib/services/eventService';
-import { getEventsByTemplateAndDateRange, createCalendarEvent } from '@/lib/services/eventService';
+import { getTemplates, getEventsByTemplateAndDateRange, createCalendarEvent } from '@/lib/services/eventService';
 import { format, addDays, addWeeks, startOfToday, getISODay } from 'date-fns';
 
-// Flag para que solo corra una vez por sesión
 let alreadyRan = false;
 
 export function useGenerateEvents() {
@@ -14,7 +12,7 @@ export function useGenerateEvents() {
   }, []);
 }
 
-async function generateUpcomingEvents() {
+export async function generateUpcomingEvents() {
   try {
     const templates = await getTemplates();
     if (templates.length === 0) return;
@@ -25,11 +23,7 @@ async function generateUpcomingEvents() {
     const endStr = format(endDate, 'yyyy-MM-dd');
 
     for (const template of templates) {
-      const existing = await getEventsByTemplateAndDateRange(
-        template.id,
-        startStr,
-        endStr
-      );
+      const existing = await getEventsByTemplateAndDateRange(template.id, startStr, endStr);
       const existingDates = new Set(existing.map((e) => e.date));
 
       let current = today;
@@ -38,6 +32,18 @@ async function generateUpcomingEvents() {
         const dateStr = format(current, 'yyyy-MM-dd');
 
         if (isoDay === template.dayOfWeek && !existingDates.has(dateStr)) {
+          // Build pickup per minor
+          const pickup: { [minorId: string]: any } = {};
+          template.minorIds.forEach((id) => {
+            pickup[id] = {
+              assignedTo: null,
+              assignedAt: null,
+              status: 'pending',
+              doneAt: null,
+              endTime: template.endTimes?.[id] ?? template.endTime,
+            };
+          });
+
           await createCalendarEvent({
             templateId: template.id,
             title: template.title,
@@ -52,7 +58,7 @@ async function generateUpcomingEvents() {
             isCancelled: false,
             createdBy: template.createdBy,
             dropoff: { assignedTo: null, assignedAt: null, status: 'pending', doneAt: null },
-            pickup: { assignedTo: null, assignedAt: null, status: 'pending', doneAt: null },
+            pickup,
           });
         }
         current = addDays(current, 1);

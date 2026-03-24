@@ -7,6 +7,7 @@ import { Minor } from '@/lib/types/minor.types';
 import { CalendarEvent, ActivityTemplate } from '@/lib/types/event.types';
 import { useAuthStore } from '@/store/authStore';
 import { Timestamp } from 'firebase/firestore';
+import { generateUpcomingEvents } from '@/lib/hooks/useGenerateEvents';
 
 const DAYS = [
   { value: 1, label: 'Lunes' },
@@ -34,21 +35,16 @@ export default function ActivitiesPage() {
   const [selectedDays, setSelectedDays] = useState<number[]>([]);
   const [date, setDate] = useState('');
   const [startTime, setStartTime] = useState('');
-  const [endTime, setEndTime] = useState('');
+  const [endTimes, setEndTimes] = useState<{ [minorId: string]: string }>({});
   const [location, setLocation] = useState('');
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
-    loadData();
-  }, []);
+  useEffect(() => { loadData(); }, []);
 
   async function loadData() {
     setLoading(true);
-    const [minorsData, templatesData] = await Promise.all([
-      getMinors(),
-      getTemplates(),
-    ]);
+    const [minorsData, templatesData] = await Promise.all([getMinors(), getTemplates()]);
     const today = new Date();
     const in30 = new Date();
     in30.setDate(today.getDate() + 30);
@@ -69,7 +65,7 @@ export default function ActivitiesPage() {
     setSelectedDays([]);
     setDate('');
     setStartTime('');
-    setEndTime('');
+    setEndTimes({});
     setLocation('');
     setNotes('');
     setShowForm(true);
@@ -87,12 +83,27 @@ export default function ActivitiesPage() {
     );
   }
 
+  function setEndTime(minorId: string, value: string) {
+    setEndTimes((prev) => ({ ...prev, [minorId]: value }));
+  }
+
+  function getLatestEndTime() {
+    const times = selectedMinors.map((id) => endTimes[id] || '').filter(Boolean);
+    if (times.length === 0) return '';
+    return times.sort().reverse()[0];
+  }
+
+  function allEndTimesFilled() {
+    return selectedMinors.every((id) => endTimes[id]);
+  }
+
   async function handleSave() {
-    if (!title.trim() || selectedMinors.length === 0 || !startTime || !endTime || !user) return;
+    if (!title.trim() || selectedMinors.length === 0 || !startTime || !allEndTimesFilled() || !user) return;
     if (activityType === 'recurring' && selectedDays.length === 0) return;
     if (activityType === 'unique' && !date) return;
     setSaving(true);
     try {
+      const latestEndTime = getLatestEndTime();
       if (activityType === 'recurring') {
         await Promise.all(
           selectedDays.map((day) =>
@@ -101,7 +112,8 @@ export default function ActivitiesPage() {
               minorIds: selectedMinors,
               dayOfWeek: day as 1 | 2 | 3 | 4 | 5 | 6 | 7,
               startTime,
-              endTime,
+              endTime: latestEndTime,
+              endTimes,
               location,
               notes: notes || null,
               isActive: true,
@@ -111,7 +123,13 @@ export default function ActivitiesPage() {
             })
           )
         );
+        await generateUpcomingEvents();
       } else {
+        // Build pickup per minor
+        const pickup: { [minorId: string]: any } = {};
+        selectedMinors.forEach((id) => {
+          pickup[id] = { assignedTo: null, assignedAt: null, status: 'pending', doneAt: null, endTime: endTimes[id] };
+        });
         await createCalendarEvent({
           templateId: null,
           title,
@@ -119,14 +137,14 @@ export default function ActivitiesPage() {
           minorIds: selectedMinors,
           date,
           startTime,
-          endTime,
+          endTime: latestEndTime,
           location,
           notes: notes || null,
           isActive: true,
           isCancelled: false,
           createdBy: user.id,
           dropoff: { assignedTo: null, assignedAt: null, status: 'pending', doneAt: null },
-          pickup: { assignedTo: null, assignedAt: null, status: 'pending', doneAt: null },
+          pickup,
         });
       }
       setShowForm(false);
@@ -160,10 +178,7 @@ export default function ActivitiesPage() {
     <div className="p-4">
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-2xl font-bold">Actividades</h1>
-        <button
-          onClick={openNew}
-          className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium"
-        >
+        <button onClick={openNew} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium">
           + Nueva
         </button>
       </div>
@@ -188,20 +203,13 @@ export default function ActivitiesPage() {
                       {t.location && <p className="text-sm text-gray-400">{t.location}</p>}
                       <div className="flex gap-1 mt-2">
                         {t.minorIds.map((id) => (
-                          <span
-                            key={id}
-                            className="text-xs text-white px-2 py-0.5 rounded-full"
-                            style={{ backgroundColor: getMinorColor(id) }}
-                          >
-                            {getMinorName(id)}
+                          <span key={id} className="text-xs text-white px-2 py-0.5 rounded-full" style={{ backgroundColor: getMinorColor(id) }}>
+                            {getMinorName(id)}{t.endTimes?.[id] && t.endTimes[id] !== t.endTime ? ` (hasta ${t.endTimes[id]})` : ''}
                           </span>
                         ))}
                       </div>
                     </div>
-                    <button
-                      onClick={() => handleDeactivateTemplate(t)}
-                      className="text-sm text-red-500 font-medium ml-2"
-                    >
+                    <button onClick={() => handleDeactivateTemplate(t)} className="text-sm text-red-500 font-medium ml-2">
                       Desactivar
                     </button>
                   </div>
@@ -220,26 +228,17 @@ export default function ActivitiesPage() {
                   <div className="flex items-start justify-between">
                     <div>
                       <p className="font-medium">{e.title}</p>
-                      <p className="text-sm text-gray-500">
-                        {e.date} · {e.startTime} - {e.endTime}
-                      </p>
+                      <p className="text-sm text-gray-500">{e.date} · {e.startTime} - {e.endTime}</p>
                       {e.location && <p className="text-sm text-gray-400">{e.location}</p>}
                       <div className="flex gap-1 mt-2">
                         {e.minorIds.map((id) => (
-                          <span
-                            key={id}
-                            className="text-xs text-white px-2 py-0.5 rounded-full"
-                            style={{ backgroundColor: getMinorColor(id) }}
-                          >
+                          <span key={id} className="text-xs text-white px-2 py-0.5 rounded-full" style={{ backgroundColor: getMinorColor(id) }}>
                             {getMinorName(id)}
                           </span>
                         ))}
                       </div>
                     </div>
-                    <button
-                      onClick={() => handleCancelEvent(e)}
-                      className="text-sm text-red-500 font-medium ml-2"
-                    >
+                    <button onClick={() => handleCancelEvent(e)} className="text-sm text-red-500 font-medium ml-2">
                       Cancelar
                     </button>
                   </div>
@@ -259,17 +258,13 @@ export default function ActivitiesPage() {
               <div className="flex gap-2">
                 <button
                   onClick={() => setActivityType('recurring')}
-                  className={`flex-1 py-2 rounded-lg text-sm font-medium border ${
-                    activityType === 'recurring' ? 'bg-blue-600 text-white border-blue-600' : 'border-gray-300 text-gray-600'
-                  }`}
+                  className={`flex-1 py-2 rounded-lg text-sm font-medium border ${activityType === 'recurring' ? 'bg-blue-600 text-white border-blue-600' : 'border-gray-300 text-gray-600'}`}
                 >
                   Recurrente
                 </button>
                 <button
                   onClick={() => setActivityType('unique')}
-                  className={`flex-1 py-2 rounded-lg text-sm font-medium border ${
-                    activityType === 'unique' ? 'bg-blue-600 text-white border-blue-600' : 'border-gray-300 text-gray-600'
-                  }`}
+                  className={`flex-1 py-2 rounded-lg text-sm font-medium border ${activityType === 'unique' ? 'bg-blue-600 text-white border-blue-600' : 'border-gray-300 text-gray-600'}`}
                 >
                   Única
                 </button>
@@ -290,9 +285,7 @@ export default function ActivitiesPage() {
                     <button
                       key={m.id}
                       onClick={() => toggleMinor(m.id)}
-                      className={`px-3 py-1.5 rounded-full text-sm font-medium border-2 ${
-                        selectedMinors.includes(m.id) ? 'text-white border-transparent' : 'bg-white border-gray-200 text-gray-600'
-                      }`}
+                      className={`px-3 py-1.5 rounded-full text-sm font-medium border-2 ${selectedMinors.includes(m.id) ? 'text-white border-transparent' : 'bg-white border-gray-200 text-gray-600'}`}
                       style={selectedMinors.includes(m.id) ? { backgroundColor: m.color, borderColor: m.color } : {}}
                     >
                       {m.name}
@@ -309,9 +302,7 @@ export default function ActivitiesPage() {
                       <button
                         key={d.value}
                         onClick={() => toggleDay(d.value)}
-                        className={`px-3 py-1.5 rounded-full text-sm font-medium border-2 ${
-                          selectedDays.includes(d.value) ? 'bg-blue-600 text-white border-blue-600' : 'bg-white border-gray-200 text-gray-600'
-                        }`}
+                        className={`px-3 py-1.5 rounded-full text-sm font-medium border-2 ${selectedDays.includes(d.value) ? 'bg-blue-600 text-white border-blue-600' : 'bg-white border-gray-200 text-gray-600'}`}
                       >
                         {d.label}
                       </button>
@@ -330,26 +321,43 @@ export default function ActivitiesPage() {
                 </div>
               )}
 
-              <div className="flex gap-2">
-                <div className="flex-1">
-                  <p className="text-sm text-gray-500 mb-2">Inicio</p>
-                  <input
-                    type="time"
-                    value={startTime}
-                    onChange={(e) => setStartTime(e.target.value)}
-                    className="border rounded-lg px-4 py-3 text-sm w-full outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-                <div className="flex-1">
-                  <p className="text-sm text-gray-500 mb-2">Fin</p>
-                  <input
-                    type="time"
-                    value={endTime}
-                    onChange={(e) => setEndTime(e.target.value)}
-                    className="border rounded-lg px-4 py-3 text-sm w-full outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
+              <div>
+                <p className="text-sm text-gray-500 mb-2">Hora de inicio</p>
+                <input
+                  type="time"
+                  value={startTime}
+                  onChange={(e) => setStartTime(e.target.value)}
+                  className="border rounded-lg px-4 py-3 text-sm w-full outline-none focus:ring-2 focus:ring-blue-500"
+                />
               </div>
+
+              {selectedMinors.length > 0 && (
+                <div>
+                  <p className="text-sm text-gray-500 mb-2">Hora de salida por menor</p>
+                  <div className="flex flex-col gap-2">
+                    {selectedMinors.map((id) => {
+                      const minor = minors.find((m) => m.id === id);
+                      return (
+                        <div key={id} className="flex items-center gap-3">
+                          <div
+                            className="w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
+                            style={{ backgroundColor: minor?.color ?? '#ccc' }}
+                          >
+                            {minor?.name[0]}
+                          </div>
+                          <span className="text-sm text-gray-700 flex-1">{minor?.name}</span>
+                          <input
+                            type="time"
+                            value={endTimes[id] || ''}
+                            onChange={(e) => setEndTime(id, e.target.value)}
+                            className="border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
 
               <input
                 type="text"
@@ -381,7 +389,7 @@ export default function ActivitiesPage() {
                     !title.trim() ||
                     selectedMinors.length === 0 ||
                     !startTime ||
-                    !endTime ||
+                    !allEndTimesFilled() ||
                     (activityType === 'recurring' && selectedDays.length === 0) ||
                     (activityType === 'unique' && !date)
                   }

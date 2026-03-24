@@ -8,6 +8,11 @@ export interface Assignment {
   doneAt: Date | null;
 }
 
+// pickup por menor: { [minorId]: Assignment & { endTime: string } }
+export interface PickupByMinor {
+  [minorId: string]: Assignment & { endTime: string };
+}
+
 export interface CalendarEvent {
   id: string;
   templateId: string | null;
@@ -16,7 +21,7 @@ export interface CalendarEvent {
   minorIds: string[];
   date: string;
   startTime: string;
-  endTime: string;
+  endTime: string;          // hora de salida del último menor (para referencia)
   location: string;
   notes: string | null;
   isActive: boolean;
@@ -24,7 +29,7 @@ export interface CalendarEvent {
   createdAt: Date;
   createdBy: string;
   dropoff: Assignment;
-  pickup: Assignment;
+  pickup: PickupByMinor;    // un pickup por menor
 }
 
 export interface ActivityTemplate {
@@ -33,7 +38,8 @@ export interface ActivityTemplate {
   minorIds: string[];
   dayOfWeek: 1 | 2 | 3 | 4 | 5 | 6 | 7;
   startTime: string;
-  endTime: string;
+  endTime: string;          // hora de salida del último menor
+  endTimes?: { [minorId: string]: string }; // hora de salida por menor (opcional)
   location: string;
   notes: string | null;
   isActive: boolean;
