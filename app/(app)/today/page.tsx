@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { getEventsByDate } from '@/lib/services/eventService';
+import { collection, query, where, onSnapshot } from 'firebase/firestore';
+import { db } from '@/lib/firebase/config';
 import { getMinors } from '@/lib/services/minorService';
 import { getUsers } from '@/lib/services/userService';
 import { CalendarEvent } from '@/lib/types/event.types';
@@ -24,7 +25,6 @@ function getPickupStatus(event: CalendarEvent): { status: string; assignedTo: st
   const pickup = event.pickup as any;
   const keys = event.minorIds;
   if (!keys.length) return { status: 'pending', assignedTo: null };
-  // Use first minor's pickup as representative
   const first = pickup[keys[0]];
   if (!first) return { status: 'pending', assignedTo: null };
   return { status: first.status, assignedTo: first.assignedTo };
@@ -43,33 +43,41 @@ export default function TodayPage() {
   const todayLabel = format(new Date(), "EEEE d 'de' MMMM", { locale: es });
 
   useEffect(() => {
-    loadData();
+    // Load minors and users once
+    Promise.all([getMinors(), getUsers()]).then(([minorsData, usersData]) => {
+      setMinors(minorsData);
+      setUsers(usersData);
+    });
+
+    // Real-time listener for today's events
+    const q = query(
+      collection(db, 'calendar_events'),
+      where('date', '==', today),
+      where('isActive', '==', true),
+      where('isCancelled', '==', false)
+    );
+
+    const unsub = onSnapshot(q, (snap) => {
+      const eventsData = snap.docs.map((d) => ({ id: d.id, ...d.data() } as CalendarEvent));
+      setEvents(eventsData.sort((a, b) => a.startTime.localeCompare(b.startTime)));
+      setLoading(false);
+
+      // Update selectedEvent if open
+      setSelectedEvent((prev) => {
+        if (!prev) return null;
+        const updated = eventsData.find((e) => e.id === prev.id);
+        return updated ?? null;
+      });
+    });
+
+    // Recalculate every minute to hide finished events
     const interval = setInterval(() => setNow(new Date()), 60000);
-    return () => clearInterval(interval);
-  }, []);
 
-  async function loadData() {
-    setLoading(true);
-    const [eventsData, minorsData, usersData] = await Promise.all([
-      getEventsByDate(today),
-      getMinors(),
-      getUsers(),
-    ]);
-    setEvents(eventsData.sort((a, b) => a.startTime.localeCompare(b.startTime)));
-    setMinors(minorsData);
-    setUsers(usersData);
-    setLoading(false);
-  }
-
-  async function handleUpdate() {
-    const eventsData = await getEventsByDate(today);
-    const sorted = eventsData.sort((a, b) => a.startTime.localeCompare(b.startTime));
-    setEvents(sorted);
-    if (selectedEvent) {
-      const updated = sorted.find((e) => e.id === selectedEvent.id);
-      if (updated) setSelectedEvent(updated);
-    }
-  }
+    return () => {
+      unsub();
+      clearInterval(interval);
+    };
+  }, [today]);
 
   function getMinorColor(id: string) {
     return minors.find((m) => m.id === id)?.color ?? '#ccc';
@@ -166,7 +174,7 @@ export default function TodayPage() {
           users={users}
           currentUser={currentUser}
           onClose={() => setSelectedEvent(null)}
-          onUpdate={handleUpdate}
+          onUpdate={() => {}}
         />
       )}
     </div>
