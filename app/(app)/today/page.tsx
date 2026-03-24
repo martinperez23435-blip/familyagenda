@@ -5,14 +5,14 @@ import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase/config';
 import { getMinors } from '@/lib/services/minorService';
 import { getUsers } from '@/lib/services/userService';
+import { getFeriados, initFeriados } from '@/lib/services/feriadoService';
+import { getMensajeComico, Feriado } from '@/lib/data/feriados2026';
 import { CalendarEvent } from '@/lib/types/event.types';
 import { Minor } from '@/lib/types/minor.types';
 import { User } from '@/lib/types/user.types';
 import { useAuthStore } from '@/store/authStore';
 import EventDetailSheet from '@/components/events/EventDetailSheet';
 import { format } from 'date-fns';
-import { getFeriados, getMensajeComico } from '@/lib/data/feriados2026';
-import { initFeriados } from '@/lib/services/feriadoService';
 import { es } from 'date-fns/locale';
 
 function isEventOver(event: CalendarEvent): boolean {
@@ -45,21 +45,22 @@ export default function TodayPage() {
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [minors, setMinors] = useState<Minor[]>([]);
   const [users, setUsers] = useState<User[]>([]);
+  const [feriados, setFeriados] = useState<Feriado[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
   const [, setNow] = useState(new Date());
-  const [feriados, setFeriados] = useState<any[]>([]);
   const [mensajeComico] = useState(getMensajeComico());
 
   const today = format(new Date(), 'yyyy-MM-dd');
   const todayLabel = format(new Date(), "EEEE d 'de' MMMM", { locale: es });
 
   useEffect(() => {
-    initFeriados().then(() => getFeriados()).then(setFeriados);
     Promise.all([getMinors(), getUsers()]).then(([minorsData, usersData]) => {
       setMinors(minorsData);
       setUsers(usersData);
     });
+
+    initFeriados().then(() => getFeriados()).then(setFeriados);
 
     const q = query(
       collection(db, 'calendar_events'),
@@ -112,6 +113,7 @@ export default function TodayPage() {
           <p style={{ fontSize: '13px', color: '#a0522d', marginTop: '4px' }}>{mensajeComico}</p>
         </div>
       )}
+
       <div className="mb-5">
         <h1 style={{ fontSize: '20px', fontWeight: 500, color: '#1b4332', textTransform: 'capitalize' }}>{todayLabel}</h1>
         <p style={{ fontSize: '13px', color: '#2d5a3d', marginTop: '2px' }}>
