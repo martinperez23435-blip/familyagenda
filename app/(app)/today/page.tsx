@@ -107,22 +107,23 @@ export default function TodayPage() {
 
   return (
     <div className="p-4">
-      {feriadoHoy && (
-        <div style={{ background: '#f0e6d4', borderRadius: '16px', padding: '14px', borderLeft: '4px solid #7a4a1a', marginBottom: '16px' }}>
-          <p style={{ fontWeight: 500, color: '#7a4a1a', fontSize: '14px' }}>🗓️ {feriadoHoy.nombre}</p>
-          <p style={{ fontSize: '13px', color: '#a0522d', marginTop: '4px' }}>{mensajeComico}</p>
-        </div>
-      )}
-
       <div className="mb-5">
         <h1 style={{ fontSize: '20px', fontWeight: 500, color: '#1b4332', textTransform: 'capitalize' }}>{todayLabel}</h1>
-        <p style={{ fontSize: '13px', color: '#2d5a3d', marginTop: '2px' }}>
-          {visibleEvents.length === 0 ? 'Sin actividades pendientes' : `${visibleEvents.length} actividad${visibleEvents.length > 1 ? 'es' : ''}`}
-        </p>
       </div>
 
       {loading ? (
         <p style={{ color: '#2d5a3d' }}>Cargando...</p>
+      ) : feriadoHoy ? (
+        // FERIADO — no se muestran actividades
+        <div className="flex flex-col items-center justify-center py-16 text-center">
+          <span style={{ fontSize: '72px', marginBottom: '16px' }}>🎉</span>
+          <p style={{ fontSize: '24px', fontWeight: 600, color: '#7a4a1a', marginBottom: '8px' }}>
+            {feriadoHoy.nombre}
+          </p>
+          <p style={{ fontSize: '16px', color: '#a0522d', maxWidth: '280px', lineHeight: '1.5' }}>
+            {mensajeComico}
+          </p>
+        </div>
       ) : visibleEvents.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20">
           <span style={{ fontSize: '60px' }}>🎉</span>

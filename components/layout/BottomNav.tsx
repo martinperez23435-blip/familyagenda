@@ -11,7 +11,7 @@ export default function BottomNav() {
   const isActive = (path: string) => pathname === path;
 
   return (
-    <nav style={{ background: 'transparent', borderTop: '1px solid rgba(45,106,79,0.2)' }} className="fixed bottom-0 left-0 right-0 flex justify-around items-center h-16 z-50">
+    <nav style={{ background: '#fff', borderTop: '1px solid rgba(45,106,79,0.2)', boxShadow: '0 -2px 8px rgba(45,106,79,0.08)' }} className="fixed bottom-0 left-0 right-0 flex justify-around items-center h-16 z-50">
       <Link href="/today" className="flex flex-col items-center gap-1" style={{ color: isActive('/today') ? '#1b4332' : '#2d5a3d', fontWeight: isActive('/today') ? 600 : 500, fontSize: '11px' }}>
         <span style={{ fontSize: '22px' }}>📅</span>
         <span>Hoy</span>
