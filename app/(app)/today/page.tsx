@@ -96,10 +96,26 @@ export default function TodayPage() {
     return users.find((u) => u.id === id)?.displayName ?? 'Alguien';
   }
 
-  function getStatusChip(status: string, type: 'dropoff' | 'pickup', assignedTo: string | null) {
-    if (status === 'done') return { label: `✓ ${type === 'dropoff' ? 'Llevó' : 'Retiró'}: ${getUserName(assignedTo!)}`, bg: '#1b4332', color: '#b7e4c7' };
-    if (status === 'assigned') return { label: `👤 ${type === 'dropoff' ? 'Lleva' : 'Retira'}: ${getUserName(assignedTo!)}`, bg: '#2d6a4f', color: '#fff' };
+  function getStatusChip(status: string, type: 'dropoff' | 'pickup', assignedTo: string | null, minorName?: string) {
+    const quien = getUserName(assignedTo!);
+    const aQuien = minorName ? ` a ${minorName}` : '';
+    if (status === 'done') return { label: `✓ ${type === 'dropoff' ? 'Llevó' : `Retiró${aQuien}`}: ${quien}`, bg: '#1b4332', color: '#b7e4c7' };
+    if (status === 'assigned') return { label: `👤 ${type === 'dropoff' ? 'Lleva' : `Retira${aQuien}`}: ${quien}`, bg: '#2d6a4f', color: '#fff' };
     return { label: type === 'dropoff' ? '🚗 Sin llevar' : '🏠 Sin retirar', bg: 'rgba(0,0,0,0.08)', color: '#333' };
+  }
+
+  function getPickupChips(event: CalendarEvent) {
+    const pickup = event.pickup as any;
+    const endTimes = event.minorIds.map((id) => pickup[id]?.endTime ?? event.endTime);
+    const allSame = endTimes.every((t: string) => t === endTimes[0]);
+    if (allSame || event.minorIds.length === 1) {
+      const p = pickup[event.minorIds[0]];
+      return [getStatusChip(p?.status ?? 'pending', 'pickup', p?.assignedTo ?? null)];
+    }
+    return event.minorIds.map((id) => {
+      const p = pickup[id];
+      return getStatusChip(p?.status ?? 'pending', 'pickup', p?.assignedTo ?? null, getMinorName(id));
+    });
   }
 
   const visibleEvents = events.filter((e) => !isEventOver(e));
@@ -135,8 +151,6 @@ export default function TodayPage() {
           {visibleEvents.map((event, index) => {
             const colors = CARD_COLORS[index % CARD_COLORS.length];
             const dropoff = getStatusChip(event.dropoff.status, 'dropoff', event.dropoff.assignedTo);
-            const pickupInfo = getPickupStatus(event);
-            const pickup = getStatusChip(pickupInfo.status, 'pickup', pickupInfo.assignedTo);
             return (
               <div
                 key={event.id}
@@ -145,11 +159,18 @@ export default function TodayPage() {
               >
                 <div className="flex items-start justify-between mb-3">
                   <div>
-                    <h3 style={{ fontSize: '15px', fontWeight: 500, color: colors.title }}>{event.title}</h3>
+                    <h3 style={{ fontSize: '17px', fontWeight: 600, color: colors.title }}>{event.title}</h3>
                     <p style={{ fontSize: '12px', color: '#555', marginTop: '2px' }}>
-                      {event.startTime} - {event.endTime}
+                      {event.startTime}
                       {event.location ? ` · ${event.location}` : ''}
                     </p>
+                    {event.minorIds.length > 1 && (() => {
+                      const pickup = event.pickup as any;
+                      const times = event.minorIds.map((id) => ({ name: getMinorName(id), time: pickup[id]?.endTime ?? event.endTime }));
+                      const allSame = times.every((t) => t.time === times[0].time);
+                      if (allSame) return <p style={{ fontSize: '12px', color: '#555' }}>hasta {times[0].time}</p>;
+                      return <p style={{ fontSize: '12px', color: '#555' }}>{times.map((t) => `${t.name} hasta ${t.time}`).join(' · ')}</p>;
+                    })()}
                   </div>
                   <div className="flex gap-2">
                     {event.minorIds.map((id) => (
@@ -166,9 +187,11 @@ export default function TodayPage() {
                   <span style={{ fontSize: '11px', padding: '4px 10px', borderRadius: '20px', fontWeight: 500, background: dropoff.bg, color: dropoff.color }}>
                     {dropoff.label}
                   </span>
-                  <span style={{ fontSize: '11px', padding: '4px 10px', borderRadius: '20px', fontWeight: 500, background: pickup.bg, color: pickup.color }}>
-                    {pickup.label}
-                  </span>
+                  {getPickupChips(event).map((chip, i) => (
+                    <span key={i} style={{ fontSize: '11px', padding: '4px 10px', borderRadius: '20px', fontWeight: 500, background: chip.bg, color: chip.color }}>
+                      {chip.label}
+                    </span>
+                  ))}
                 </div>
                 {event.notes && <p style={{ fontSize: '12px', color: '#666', marginTop: '8px' }}>{event.notes}</p>}
               </div>
